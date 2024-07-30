@@ -14,7 +14,16 @@ def record_audio(file_path):
 
 def play_audio(file_path):
     try:
-        audio = AudioSegment.from_file(file_path)
-        play(audio)
+        pygame.mixer.init()
+        pygame.mixer.music.load(file_path)
+        pygame.mixer.music.set_volume(1.0)  # Ensure volume is set to max
+        pygame.mixer.music.play()
+        st.write("Playing audio...")
+
+        # Wait until the audio is finished playing
+        while pygame.mixer.music.get_busy():
+            time.sleep(1)
+        st.write("Audio playback finished.")
     except Exception as e:
-        print(f"Error playing audio: {e}")
+        st.error(f"An error occurred during audio playback: {e}")
+
