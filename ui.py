@@ -1,18 +1,20 @@
+import json
+import os
+import datetime
+import pygame
 import streamlit as st
+from openai import OpenAI
 from langchain_community.agent_toolkits.sql.base import create_sql_agent
 from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
-from langchain.agents.agent_types import AgentType
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain.prompts.chat import ChatPromptTemplate
+from langchain.agents.agent_types import AgentType
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
-import os
-from openai import OpenAI
-from utils import record_audio, play_audio
-import datetime
 import warnings
-import pygame
+from utils import record_audio, play_audio
+import speech_recognition as sr
 
 # Ignore DeprecationWarning
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -48,7 +50,6 @@ prompt = ChatPromptTemplate.from_messages(
         Search products in every column, since there may not be any category with any item.
         Please use the below context to write the SQL queries. It is a PostgreSQL database.
         Dont return the final answer in dictionary format. Use string format.
-        Give response in a concise paragraph.
         Context:
         You are an expert at handling databases.
         You must query against the connected database, which has tables 'products', 'products_russian'.
@@ -77,7 +78,7 @@ def get_final_answer(question):
         output = agent.invoke(prompt.format_prompt(question=question))
         # Print the raw output for debugging
         st.write(f"Raw Output: {output}")
-        
+
         # Extract only the final answer from the nested dictionary
         if isinstance(output, dict) and 'output' in output:
             output_text = output['output']
@@ -88,7 +89,7 @@ def get_final_answer(question):
                 final_answer = output_text.strip()
         else:
             final_answer = str(output)
-        
+
         # Generate audio for the final answer
         response = client.audio.speech.create(
             model="tts-1",
