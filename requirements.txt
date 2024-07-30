@@ -16,4 +16,4 @@ pydub
 ffmpeg-python
 setuptools
 wheel
-PyAudio
+pyaudio
