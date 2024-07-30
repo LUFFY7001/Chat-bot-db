@@ -46,6 +46,7 @@ prompt = ChatPromptTemplate.from_messages(
         Give an answer if asked about any products in the database by querying description, offers, and price for the product.
         Search products in every column, since there may not be any category with any item.
         Please use the below context to write the SQL queries. It is a PostgreSQL database.
+        Dont return the final answer in dictionary format. Use string format.
         Context:
         You are an expert at handling databases.
         You must query against the connected database, which has tables 'products', 'products_russian'.
@@ -72,13 +73,10 @@ agent = create_sql_agent(
 def get_final_answer(question):
     try:
         output = agent.invoke(prompt.format_prompt(question=question))
-        # Print the raw output for debugging
-        st.write(f"Raw Output: {output}")
-        
         # Extract only the final answer from the nested dictionary
         if isinstance(output, dict) and 'output' in output:
             output_text = output['output']
-            # Ensure the output is correctly formatted
+            # st.write(f"Raw Output: {output_text}")  # Debugging line
             if "Final Answer:" in output_text:
                 final_answer = output_text.split("Final Answer:")[-1].strip()
             else:
@@ -86,7 +84,8 @@ def get_final_answer(question):
         else:
             final_answer = str(output)
         
-        # Generate audio for the final answer
+        # st.write(f"Final Answer: {final_answer}")  # Debugging line
+
         response = client.audio.speech.create(
             model="tts-1",
             voice="nova",
@@ -94,6 +93,7 @@ def get_final_answer(question):
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         filename = f"output_{timestamp}.mp3"
         response.stream_to_file(filename)
+        print(final_answer)
         play_audio(filename)
         return final_answer
         
@@ -114,6 +114,19 @@ def main():
                 st.chat_message("user").markdown(msg['content'])
             else:
                 st.chat_message("assistant").markdown(msg['content'])
+
+    # Function to display chat messages
+    # def display_message_user():
+    #     for msg in st.session_state['messages']:
+    #         if msg['role'] == 'user':
+    #             st.chat_message("user").markdown(msg['content'])
+            
+    # def display_message_assistant():
+    #     for msg in st.session_state['messages']:
+    #         if msg['role'] == 'assistant':
+    #             st.chat_message("assistant").markdown(msg['content'])
+
+    # display_messages()
 
     # Chat input section
     st.header("Chat Input")
