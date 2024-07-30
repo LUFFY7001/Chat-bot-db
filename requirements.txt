@@ -14,3 +14,4 @@ pygame==2.6.0
 SpeechRecognition==3.10.4
 pydub
 ffmpeg-python
+PyAudio
