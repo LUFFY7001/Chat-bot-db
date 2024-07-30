@@ -141,3 +141,23 @@ def main():
                     file=audio_file
                 )
                 question = transcription.text
+                st.session_state['messages'].append({'role': 'user', 'content': question})
+                with st.spinner("Processing..."):
+                    final_answer = get_final_answer(question)
+                st.session_state['messages'].append({'role': 'assistant', 'content': final_answer})
+            else:
+                st.error("No microphone found. Please connect a microphone and try again.")
+        except OSError as e:
+            st.error(f"An error occurred: {e}")
+
+    # Text input section
+    question = st.chat_input("Enter your question:")
+    if question:
+        st.session_state['messages'].append({'role': 'user', 'content': question})
+        with st.spinner("Processing..."):
+            final_answer = get_final_answer(question)
+        st.session_state['messages'].append({'role': 'assistant', 'content': final_answer})
+        display_messages()
+
+if __name__ == "__main__":
+    main()
