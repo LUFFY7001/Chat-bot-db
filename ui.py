@@ -9,6 +9,7 @@ from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain.prompts.chat import ChatPromptTemplate
+from langchain.agents.agent_types import AgentType
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import warnings
