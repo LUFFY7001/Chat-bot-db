@@ -48,6 +48,7 @@ prompt = ChatPromptTemplate.from_messages(
         Search products in every column, since there may not be any category with any item.
         Please use the below context to write the SQL queries. It is a PostgreSQL database.
         Dont return the final answer in dictionary format. Use string format.
+        Give response in a concise paragraph.
         Context:
         You are an expert at handling databases.
         You must query against the connected database, which has tables 'products', 'products_russian'.
