@@ -1,0 +1,14 @@
+langchain==0.2.10
+langchain-community==0.2.9
+langchain-core==0.2.22
+langchain-groq==0.1.6
+langchain-openai==0.1.17
+langchain-text-splitters==0.2.2
+openai==1.36.1
+SQLAlchemy==2.0.31
+streamlit==1.37.0
+python-dotenv==1.0.1
+pymssql==2.3.0
+psycopg2==2.9.9
+pygame==2.6.0
+SpeechRecognition==3.10.4
