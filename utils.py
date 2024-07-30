@@ -4,6 +4,7 @@ from pydub.playback import play
 import os
 import streamlit as st
 import pygame
+import time
 
 def record_audio(file_path):
     recognizer = sr.Recognizer()
@@ -28,4 +29,3 @@ def play_audio(file_path):
         st.write("Audio playback finished.")
     except Exception as e:
         st.error(f"An error occurred during audio playback: {e}")
-
