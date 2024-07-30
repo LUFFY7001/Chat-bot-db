@@ -12,6 +12,7 @@ from openai import OpenAI
 from utils import record_audio, play_audio
 import datetime
 import warnings
+import pygame
 
 # Ignore DeprecationWarning
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -73,10 +74,13 @@ agent = create_sql_agent(
 def get_final_answer(question):
     try:
         output = agent.invoke(prompt.format_prompt(question=question))
+        # Print the raw output for debugging
+        st.write(f"Raw Output: {output}")
+        
         # Extract only the final answer from the nested dictionary
         if isinstance(output, dict) and 'output' in output:
             output_text = output['output']
-            # st.write(f"Raw Output: {output_text}")  # Debugging line
+            # Ensure the output is correctly formatted
             if "Final Answer:" in output_text:
                 final_answer = output_text.split("Final Answer:")[-1].strip()
             else:
@@ -84,8 +88,7 @@ def get_final_answer(question):
         else:
             final_answer = str(output)
         
-        # st.write(f"Final Answer: {final_answer}")  # Debugging line
-
+        # Generate audio for the final answer
         response = client.audio.speech.create(
             model="tts-1",
             voice="nova",
@@ -93,7 +96,14 @@ def get_final_answer(question):
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         filename = f"output_{timestamp}.mp3"
         response.stream_to_file(filename)
-        print(final_answer)
+
+        # Debugging: Ensure the file exists
+        st.write(f"Audio file created: {filename}")
+        if not os.path.exists(filename):
+            st.error("Audio file was not created.")
+            return "Audio file was not created."
+
+        # Play the audio file
         play_audio(filename)
         return final_answer
         
@@ -115,46 +125,19 @@ def main():
             else:
                 st.chat_message("assistant").markdown(msg['content'])
 
-    # Function to display chat messages
-    # def display_message_user():
-    #     for msg in st.session_state['messages']:
-    #         if msg['role'] == 'user':
-    #             st.chat_message("user").markdown(msg['content'])
-            
-    # def display_message_assistant():
-    #     for msg in st.session_state['messages']:
-    #         if msg['role'] == 'assistant':
-    #             st.chat_message("assistant").markdown(msg['content'])
-
-    # display_messages()
-
     # Chat input section
     st.header("Chat Input")
 
     # Add an audio recording button
     if st.button("🎤"):
-        with st.spinner("Recording..."):
-            record_audio('test.wav')
-            st.success("Audio recorded successfully.")
-        audio_file = open('test.wav', "rb")
-        transcription = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file
-        )
-        question = transcription.text
-        st.session_state['messages'].append({'role': 'user', 'content': question})
-        with st.spinner("Processing..."):
-            final_answer = get_final_answer(question)
-        st.session_state['messages'].append({'role': 'assistant', 'content': final_answer})
-
-    # Text input section
-    question = st.chat_input("Enter your question:")
-    if question:
-        st.session_state['messages'].append({'role': 'user', 'content': question})
-        with st.spinner("Processing..."):
-            final_answer = get_final_answer(question)
-        st.session_state['messages'].append({'role': 'assistant', 'content': final_answer})
-        display_messages()
-
-if __name__ == "__main__":
-    main()
+        try:
+            if sr.Microphone().list_microphone_names():
+                with st.spinner("Recording..."):
+                    record_audio('test.wav')
+                    st.success("Audio recorded successfully.")
+                audio_file = open('test.wav', "rb")
+                transcription = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file
+                )
+                question = transcription.text
