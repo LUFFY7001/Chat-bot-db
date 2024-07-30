@@ -9,12 +9,10 @@ from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain.prompts.chat import ChatPromptTemplate
-from langchain.agents.agent_types import AgentType
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import warnings
 from utils import record_audio, play_audio
-import speech_recognition as sr
 
 # Ignore DeprecationWarning
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -110,6 +108,7 @@ def get_final_answer(question):
         return final_answer
         
     except Exception as e:
+        st.error(f"An error occurred: {e}")
         return f"An error occurred: {e}"
 
 # Main function to create Streamlit UI
