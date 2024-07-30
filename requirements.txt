@@ -12,3 +12,5 @@ pymssql==2.3.0
 psycopg2-binary
 pygame==2.6.0
 SpeechRecognition==3.10.4
+pydub
+ffmpeg-python
