@@ -2,6 +2,7 @@ import speech_recognition as sr
 from pydub import AudioSegment
 from pydub.playback import play
 import os
+import streamlit as st
 
 def record_audio(file_path):
     recognizer = sr.Recognizer()
