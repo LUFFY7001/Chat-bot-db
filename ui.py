@@ -1,29 +1,33 @@
-import json
-import os
-import datetime
-import pygame
 import streamlit as st
-from openai import OpenAI
+from audio_recorder_streamlit import audio_recorder
+import numpy as np
+import wave
+import openai
+import pyaudio
+from sqlalchemy import create_engine
+from dotenv import load_dotenv
+import time
+import os
+import warnings
+
 from langchain_community.agent_toolkits.sql.base import create_sql_agent
 from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+from langchain.agents.agent_types import AgentType
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain.prompts.chat import ChatPromptTemplate
-from langchain.agents.agent_types import AgentType
-from sqlalchemy import create_engine
-from dotenv import load_dotenv
-import warnings
-from utils import record_audio, play_audio
 
 # Ignore DeprecationWarning
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # Load environment variables
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Database connection
-cs = os.getenv("CON_KEY")
+# Set up OpenAI client
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Set up database connection
+cs = "postgresql+psycopg2://aswin:telic@34.93.140.8:5432/testdb"
 db_engine = create_engine(cs)
 db = SQLDatabase(db_engine)
 
@@ -45,13 +49,12 @@ prompt = ChatPromptTemplate.from_messages(
         If the user input is in Russian script then use products_russian table.
         Product names may be case sensitive (consider the possibility).
         If finding difficulty in finding specifications, search for individual words in the database.
-        Give an answer if asked about any products in the database by querying description, offers, and price for the product.
-        Search products in every column, since there may not be any category with any item.
+        Give an answer if asked about any products in the database by querying description, offers and price for the product.
+        Search products in every column. since there may not be any category with any item.
         Please use the below context to write the SQL queries. It is a PostgreSQL database.
-        Dont return the final answer in dictionary format. Use string format.
         Context:
         You are an expert at handling databases.
-        You must query against the connected database, which has tables 'products', 'products_russian'.
+        You must query against the connected database, which has tables, 'products', 'products_russian'.
         Both tables have columns: name, description, price, category, offers, image_link.
         As an expert, you must use joins whenever required.
         """
@@ -68,20 +71,49 @@ agent = create_sql_agent(
     verbose=True,
     max_execution_time=100,
     max_iterations=1000,
-    handle_parsing_errors=True,  # Ensuring parsing errors are handled
+    handle_parsing_errors=True
 )
+
+# Function to convert speech to text
+def speech_to_text(audio_file):
+    transcription = client.audio.transcriptions.create(model="whisper-1", file=open(audio_file, "rb"))
+    return transcription.text
+
+# Function to convert text to speech and play it
+def text_to_speech_and_play(response_text):
+    player_stream = pyaudio.PyAudio().open(format=pyaudio.paInt16, channels=1, rate=24000, output=True)
+    stream_start = False
+    silence_threshold = 0.01
+    wave_file_path = f"tts_output_{int(time.time())}.wav"
+    wave_file = wave.open(wave_file_path, 'wb')
+    wave_file.setnchannels(1)
+    wave_file.setsampwidth(pyaudio.PyAudio().get_sample_size(pyaudio.paInt16))
+    wave_file.setframerate(24000)
+
+    with client.audio.speech.with_streaming_response.create(
+            model='tts-1',
+            voice='nova',
+            response_format='pcm',
+            input=response_text,
+    ) as response_stream:
+        for chunk in response_stream.iter_bytes(chunk_size=1024):
+            if stream_start:
+                player_stream.write(chunk)
+            else:
+                if max(chunk) > silence_threshold:
+                    player_stream.write(chunk)
+                    stream_start = True
+            wave_file.writeframes(chunk)
+
+    wave_file.close()
+    return wave_file_path
 
 # Function to get the final answer
 def get_final_answer(question):
     try:
         output = agent.invoke(prompt.format_prompt(question=question))
-        # Print the raw output for debugging
-        st.write(f"Raw Output: {output}")
-
-        # Extract only the final answer from the nested dictionary
         if isinstance(output, dict) and 'output' in output:
             output_text = output['output']
-            # Ensure the output is correctly formatted
             if "Final Answer:" in output_text:
                 final_answer = output_text.split("Final Answer:")[-1].strip()
             else:
@@ -89,77 +121,53 @@ def get_final_answer(question):
         else:
             final_answer = str(output)
 
-        # Generate audio for the final answer
-        response = client.audio.speech.create(
-            model="tts-1",
-            voice="nova",
-            input=final_answer)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        filename = f"output_{timestamp}.mp3"
-        response.stream_to_file(filename)
+        wave_file_path = text_to_speech_and_play(final_answer)
+        return wave_file_path, final_answer
 
-        # Debugging: Ensure the file exists
-        st.write(f"Audio file created: {filename}")
-        if not os.path.exists(filename):
-            st.error("Audio file was not created.")
-            return "Audio file was not created."
-
-        # Play the audio file
-        play_audio(filename)
-        return final_answer
-        
     except Exception as e:
-        st.error(f"An error occurred: {e}")
-        return f"An error occurred: {e}"
+        return None, f"An error occurred: {e}"
 
-# Main function to create Streamlit UI
-def main():
-    st.title("Chat with DB")
+# Streamlit UI
+st.title("Chat with Database")
 
-    # Initialize session state for chat history
-    if 'messages' not in st.session_state:
-        st.session_state['messages'] = []
+# Initialize session state for chat history
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
 
-    def display_messages():
-        for msg in st.session_state['messages']:
-            if msg['role'] == 'user':
-                st.chat_message("user").markdown(msg['content'])
-            else:
-                st.chat_message("assistant").markdown(msg['content'])
+input_option = st.radio("Choose input type:", ("Text", "Audio"))
 
-    # Chat input section
-    st.header("Chat Input")
-
-    # Add an audio recording button
-    if st.button("🎤"):
-        try:
-            if sr.Microphone().list_microphone_names():
-                with st.spinner("Recording..."):
-                    record_audio('test.wav')
-                    st.success("Audio recorded successfully.")
-                audio_file = open('test.wav', "rb")
-                transcription = client.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=audio_file
-                )
-                question = transcription.text
-                st.session_state['messages'].append({'role': 'user', 'content': question})
-                with st.spinner("Processing..."):
-                    final_answer = get_final_answer(question)
-                st.session_state['messages'].append({'role': 'assistant', 'content': final_answer})
-            else:
-                st.error("No microphone found. Please connect a microphone and try again.")
-        except OSError as e:
-            st.error(f"An error occurred: {e}")
-
-    # Text input section
+if input_option == "Text":
     question = st.chat_input("Enter your question:")
     if question:
-        st.session_state['messages'].append({'role': 'user', 'content': question})
-        with st.spinner("Processing..."):
-            final_answer = get_final_answer(question)
-        st.session_state['messages'].append({'role': 'assistant', 'content': final_answer})
-        display_messages()
+        wave_file_path, final_answer = get_final_answer(question)
+        st.session_state.chat_history.append({"question": question, "answer": final_answer})
+        st.write("Answer:", final_answer)
+        if wave_file_path:
+            audio_file = open(wave_file_path, 'rb')
+            audio_bytes = audio_file.read()
+            st.audio(audio_bytes, format='audio/wav')
 
-if __name__ == "__main__":
-    main()
+elif input_option == "Audio":
+    audio_bytes = audio_recorder()
+    if audio_bytes:
+        # Save the audio file
+        wavfile = f"realtime_audio_{int(time.time())}.wav"
+        with open(wavfile, "wb") as f:
+            f.write(audio_bytes)
+        
+        st.write("Audio recorded. Processing...")
+        question = speech_to_text(wavfile)
+        st.write("Transcribed Question:", question)
+        wave_file_path, final_answer = get_final_answer(question)
+        st.session_state.chat_history.append({"question": question, "answer": final_answer})
+        st.write("Answer:", final_answer)
+        if wave_file_path:
+            audio_file = open(wave_file_path, 'rb')
+            audio_bytes = audio_file.read()
+            st.audio(audio_bytes, format='audio/wav')
+
+# Display the chat history
+st.write("### Chat History")
+for i, chat in enumerate(st.session_state.chat_history):
+    st.write(f"**Q{i+1}:** {chat['question']}")
+    st.write(f"**A{i+1}:** {chat['answer']}")
