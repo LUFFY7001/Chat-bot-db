@@ -79,7 +79,8 @@ agent = create_sql_agent(
 # Function to convert speech to text
 def speech_to_text(audio_file):
     transcription = client.audio.transcriptions.create(model="whisper-1", file=open(audio_file, "rb"))
-    return transcription['text']
+    print(transcription.text)
+    return transcription.text
 
 # Function to convert text to speech using BytesIO
 def text_to_speech(text):
