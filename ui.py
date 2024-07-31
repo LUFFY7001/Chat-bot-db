@@ -81,7 +81,6 @@ def speech_to_text(audio_file):
     transcription = client.audio.transcriptions.create(model="whisper-1", file=open(audio_file, "rb"))
     print(transcription.text)
     return transcription.text
-
 # Function to convert text to speech using BytesIO
 def text_to_speech(text):
     try:
@@ -166,8 +165,12 @@ elif input_option == "Audio":
         if audio_stream:
             st.audio(audio_stream, format='audio/wav')
 
-# Display the chat history
+# Display the chat history with delete option
 st.write("### Chat History")
 for i, chat in enumerate(st.session_state.chat_history):
     st.write(f"**Q{i+1}:** {chat['question']}")
     st.write(f"**A{i+1}:** {chat['answer']}")
+    # Delete button
+    if st.button(f"Delete Q{i+1}", key=f"delete_{i}"):
+        st.session_state.chat_history.pop(i)
+        st.experimental_rerun()  # Refresh the app to reflect changes
