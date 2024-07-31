@@ -52,6 +52,7 @@ prompt = ChatPromptTemplate.from_messages(
         If finding difficulty in finding specifications, search for individual words in the database.
         Give an answer if asked about any products in the database by querying description, offers and price for the product.
         Search products in every column. since there may not be any category with any item.
+        If you got more than one product try to cover it up in a single paragraph.
         Please use the below context to write the SQL queries. It is a PostgreSQL database.
         Context:
         You are an expert at handling databases.
