@@ -126,9 +126,7 @@ if input_option == "Text":
         st.session_state.chat_history.append({"question": question, "answer": final_answer})
         st.write("Answer:", final_answer)
         if wave_file_path:
-            audio_file = open(wave_file_path, 'rb')
-            audio_bytes = audio_file.read()
-            st.audio(audio_bytes, format='audio/wav')
+            st.audio(wav_file_path)
 
 elif input_option == "Audio":
     audio_bytes = audio_recorder()
@@ -145,9 +143,7 @@ elif input_option == "Audio":
         st.session_state.chat_history.append({"question": question, "answer": final_answer})
         st.write("Answer:", final_answer)
         if wave_file_path:
-            audio_file = open(wave_file_path, 'rb')
-            audio_bytes = audio_file.read()
-            st.audio(audio_bytes, format='audio/wav')
+            st.audio(wav_file_path)
 
 # Display the chat history
 st.write("### Chat History")
