@@ -3,14 +3,13 @@ from audio_recorder_streamlit import audio_recorder
 import numpy as np
 import wave
 import openai
-import pyaudio
+from io import BytesIO
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import time
 import os
 import warnings
 import logging
-from io import BytesIO
 
 from langchain_community.agent_toolkits.sql.base import create_sql_agent
 from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
@@ -79,8 +78,8 @@ agent = create_sql_agent(
 # Function to convert speech to text
 def speech_to_text(audio_file):
     transcription = client.audio.transcriptions.create(model="whisper-1", file=open(audio_file, "rb"))
-    print(transcription.text)
     return transcription.text
+
 # Function to convert text to speech using BytesIO
 def text_to_speech(text):
     try:
@@ -173,4 +172,5 @@ for i, chat in enumerate(st.session_state.chat_history):
     # Delete button
     if st.button(f"Delete Q{i+1}", key=f"delete_{i}"):
         st.session_state.chat_history.pop(i)
-        st.experimental_rerun()  # Refresh the app to reflect changes
+        # Re-render the chat history after deletion
+        st.experimental_rerun()
