@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 import time
 import os
 import warnings
+import logging
+from io import BytesIO
 
 from langchain_community.agent_toolkits.sql.base import create_sql_agent
 from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
@@ -77,36 +79,35 @@ agent = create_sql_agent(
 # Function to convert speech to text
 def speech_to_text(audio_file):
     transcription = client.audio.transcriptions.create(model="whisper-1", file=open(audio_file, "rb"))
-    return transcription
+    return transcription['text']
 
-# Function to convert text to speech and play it
-def text_to_speech_and_play(response_text):
-    player_stream = pyaudio.PyAudio().open(format=pyaudio.paInt16, channels=1, rate=24000, output=True)
-    stream_start = False
-    silence_threshold = 0.01
-    wave_file_path = f"tts_output_{int(time.time())}.wav"
-    wave_file = wave.open(wave_file_path, 'wb')
-    wave_file.setnchannels(1)
-    wave_file.setsampwidth(pyaudio.PyAudio().get_sample_size(pyaudio.paInt16))
-    wave_file.setframerate(24000)
+# Function to convert text to speech using BytesIO
+def text_to_speech(text):
+    try:
+        audio_stream = BytesIO()
 
-    with client.audio.speech.with_streaming_response.create(
-            model='tts-1',
-            voice='nova',
-            response_format='pcm',
-            input=response_text,
-    ) as response_stream:
-        for chunk in response_stream.iter_bytes(chunk_size=1024):
-            if stream_start:
-                player_stream.write(chunk)
-            else:
-                if max(chunk) > silence_threshold:
-                    player_stream.write(chunk)
-                    stream_start = True
-            wave_file.writeframes(chunk)
+        with client.audio.speech.with_streaming_response.create(
+                model='tts-1',
+                voice='nova',
+                response_format='pcm',
+                input=text,
+        ) as response_stream:
+            wf = wave.open(audio_stream, 'wb')
+            wf.setnchannels(1)
+            wf.setsampwidth(2)  # Assuming 16-bit PCM
+            wf.setframerate(24000)
 
-    wave_file.close()
-    return wave_file_path
+            for chunk in response_stream.iter_bytes(chunk_size=1024):
+                wf.writeframes(chunk)
+
+            wf.close()
+
+        audio_stream.seek(0)
+        logging.info("Completed text_to_speech conversion")
+        return audio_stream
+    except Exception as e:
+        logging.error(f"Error converting text to speech: {e}", exc_info=True)
+    return None
 
 # Function to get the final answer
 def get_final_answer(question):
@@ -121,8 +122,10 @@ def get_final_answer(question):
         else:
             final_answer = str(output)
 
-        wave_file_path = text_to_speech_and_play(final_answer)
-        return wave_file_path, final_answer
+        audio_stream = text_to_speech(final_answer)
+        if audio_stream:
+            return audio_stream, final_answer
+        return None, final_answer
 
     except Exception as e:
         return None, f"An error occurred: {e}"
@@ -139,13 +142,11 @@ input_option = st.radio("Choose input type:", ("Text", "Audio"))
 if input_option == "Text":
     question = st.chat_input("Enter your question:")
     if question:
-        wave_file_path, final_answer = get_final_answer(question)
+        audio_stream, final_answer = get_final_answer(question)
         st.session_state.chat_history.append({"question": question, "answer": final_answer})
         st.write("Answer:", final_answer)
-        if wave_file_path:
-            audio_file = open(wave_file_path, 'rb')
-            audio_bytes = audio_file.read()
-            st.audio(audio_bytes, format='audio/wav')
+        if audio_stream:
+            st.audio(audio_stream, format='audio/wav')
 
 elif input_option == "Audio":
     audio_bytes = audio_recorder()
@@ -158,13 +159,11 @@ elif input_option == "Audio":
         st.write("Audio recorded. Processing...")
         question = speech_to_text(wavfile)
         st.write("Transcribed Question:", question)
-        wave_file_path, final_answer = get_final_answer(question)
+        audio_stream, final_answer = get_final_answer(question)
         st.session_state.chat_history.append({"question": question, "answer": final_answer})
         st.write("Answer:", final_answer)
-        if wave_file_path:
-            audio_file = open(wave_file_path, 'rb')
-            audio_bytes = audio_file.read()
-            st.audio(audio_bytes, format='audio/wav')
+        if audio_stream:
+            st.audio(audio_stream, format='audio/wav')
 
 # Display the chat history
 st.write("### Chat History")
