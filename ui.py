@@ -172,5 +172,3 @@ for i, chat in enumerate(st.session_state.chat_history):
     # Delete button
     if st.button(f"Delete Q{i+1}", key=f"delete_{i}"):
         st.session_state.chat_history.pop(i)
-        # Re-render the chat history after deletion
-        st.experimental_rerun()
