@@ -104,7 +104,7 @@ def get_final_answer(question):
         else:
             final_answer = str(output)
 
-        wave_file_path = text_to_speech_and_play(final_answer)
+        wave_file_path = text_to_speech_and_save(final_answer)
         return wave_file_path, final_answer
 
     except Exception as e:
