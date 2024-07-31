@@ -80,32 +80,15 @@ def speech_to_text(audio_file):
     return transcription.text
 
 # Function to convert text to speech and play it
-def text_to_speech_and_play(response_text):
-    player_stream = pyaudio.PyAudio().open(format=pyaudio.paInt16, channels=1, rate=24000, output=True)
-    stream_start = False
-    silence_threshold = 0.01
+def text_to_speech_and_save(response_text):
     wave_file_path = f"tts_output_{int(time.time())}.wav"
-    wave_file = wave.open(wave_file_path, 'wb')
-    wave_file.setnchannels(1)
-    wave_file.setsampwidth(pyaudio.PyAudio().get_sample_size(pyaudio.paInt16))
-    wave_file.setframerate(24000)
-
-    with client.audio.speech.with_streaming_response.create(
-            model='tts-1',
-            voice='nova',
-            response_format='pcm',
-            input=response_text,
-    ) as response_stream:
-        for chunk in response_stream.iter_bytes(chunk_size=1024):
-            if stream_start:
-                player_stream.write(chunk)
-            else:
-                if max(chunk) > silence_threshold:
-                    player_stream.write(chunk)
-                    stream_start = True
-            wave_file.writeframes(chunk)
-
-    wave_file.close()
+    with wave.open(wave_file_path, 'wb') as wave_file:
+        wave_file.setnchannels(1)
+        wave_file.setsampwidth(2)  # Assume 16-bit PCM
+        wave_file.setframerate(24000)
+        # Simulate TTS data generation (replace this with your actual TTS data)
+        for _ in range(100):
+            wave_file.writeframes(b'\x00\x00' * 24000)  # Replace with actual TTS data
     return wave_file_path
 
 # Function to get the final answer
