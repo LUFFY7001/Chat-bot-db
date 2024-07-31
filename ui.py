@@ -27,7 +27,7 @@ load_dotenv()
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Set up database connection
-cs = "postgresql+psycopg2://aswin:telic@34.93.140.8:5432/testdb"
+cs = os.getenv("CON_KEY")
 db_engine = create_engine(cs)
 db = SQLDatabase(db_engine)
 
