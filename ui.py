@@ -27,7 +27,7 @@ load_dotenv()
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Set up database connection
-cs = os.getenv("CON_KEY")
+cs = "postgresql+psycopg2://aswin:telic@34.93.140.8:5432/testdb"
 db_engine = create_engine(cs)
 db = SQLDatabase(db_engine)
 
@@ -77,18 +77,35 @@ agent = create_sql_agent(
 # Function to convert speech to text
 def speech_to_text(audio_file):
     transcription = client.audio.transcriptions.create(model="whisper-1", file=open(audio_file, "rb"))
-    return transcription.text
+    return transcription
 
 # Function to convert text to speech and play it
-def text_to_speech_and_save(response_text):
+def text_to_speech_and_play(response_text):
+    player_stream = pyaudio.PyAudio().open(format=pyaudio.paInt16, channels=1, rate=24000, output=True)
+    stream_start = False
+    silence_threshold = 0.01
     wave_file_path = f"tts_output_{int(time.time())}.wav"
-    with wave.open(wave_file_path, 'wb') as wave_file:
-        wave_file.setnchannels(1)
-        wave_file.setsampwidth(2)  # Assume 16-bit PCM
-        wave_file.setframerate(24000)
-        # Simulate TTS data generation (replace this with your actual TTS data)
-        for _ in range(100):
-            wave_file.writeframes(b'\x00\x00' * 24000)  # Replace with actual TTS data
+    wave_file = wave.open(wave_file_path, 'wb')
+    wave_file.setnchannels(1)
+    wave_file.setsampwidth(pyaudio.PyAudio().get_sample_size(pyaudio.paInt16))
+    wave_file.setframerate(24000)
+
+    with client.audio.speech.with_streaming_response.create(
+            model='tts-1',
+            voice='nova',
+            response_format='pcm',
+            input=response_text,
+    ) as response_stream:
+        for chunk in response_stream.iter_bytes(chunk_size=1024):
+            if stream_start:
+                player_stream.write(chunk)
+            else:
+                if max(chunk) > silence_threshold:
+                    player_stream.write(chunk)
+                    stream_start = True
+            wave_file.writeframes(chunk)
+
+    wave_file.close()
     return wave_file_path
 
 # Function to get the final answer
@@ -104,7 +121,7 @@ def get_final_answer(question):
         else:
             final_answer = str(output)
 
-        wave_file_path = text_to_speech_and_save(final_answer)
+        wave_file_path = text_to_speech_and_play(final_answer)
         return wave_file_path, final_answer
 
     except Exception as e:
@@ -126,7 +143,9 @@ if input_option == "Text":
         st.session_state.chat_history.append({"question": question, "answer": final_answer})
         st.write("Answer:", final_answer)
         if wave_file_path:
-            st.audio(wav_file_path)
+            audio_file = open(wave_file_path, 'rb')
+            audio_bytes = audio_file.read()
+            st.audio(audio_bytes, format='audio/wav')
 
 elif input_option == "Audio":
     audio_bytes = audio_recorder()
@@ -143,7 +162,9 @@ elif input_option == "Audio":
         st.session_state.chat_history.append({"question": question, "answer": final_answer})
         st.write("Answer:", final_answer)
         if wave_file_path:
-            st.audio(wav_file_path)
+            audio_file = open(wave_file_path, 'rb')
+            audio_bytes = audio_file.read()
+            st.audio(audio_bytes, format='audio/wav')
 
 # Display the chat history
 st.write("### Chat History")
