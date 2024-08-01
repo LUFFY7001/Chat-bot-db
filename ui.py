@@ -14,7 +14,7 @@ import logging
 from langchain_community.agent_toolkits.sql.base import create_sql_agent
 from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
 from langchain.agents.agent_types import AgentType
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from langchain_community.utilities import SQLDatabase
 from langchain.prompts.chat import ChatPromptTemplate
 
@@ -33,7 +33,13 @@ db_engine = create_engine(cs)
 db = SQLDatabase(db_engine)
 
 # Initialize the language model
-llm = ChatOpenAI(api_key=os.getenv("OPENAI_API_KEY"), temperature=0.0, model="gpt-4o-mini")
+llm = ChatGroq(
+    model="llama3-70b-8192",
+    temperature=0,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2,
+)
 sql_toolkit = SQLDatabaseToolkit(db=db, llm=llm)
 sql_toolkit.get_tools()
 
@@ -42,23 +48,34 @@ prompt = ChatPromptTemplate.from_messages(
     [
         ("system",
         """
-        You are a sales agent and you know a lot about marketing.
-        You have to give short and concise responses with kindness.
-        Your products are in the 'products' database.
-        Reply the final answer as a human would.
-        If the user input is in Russian script then reply the final answer in Russian script as well.
-        If the user input is in Russian script then use products_russian table.
+        You are a sales agent and you know a lot about marketing. You have to give short and concise responses with kindness. Your products are in the 'products' database.
+
+        Language Handling:
+
+        If the user input is in Russian script, reply the final answer in Russian script as well.
+        If the user input is in Russian script, use the 'products_russian' table.
+        Product Querying:
+
         Product names may be case sensitive (consider the possibility).
         If finding difficulty in finding specifications, search for individual words in the database.
-        Give an answer if asked about any products in the database by querying description, offers and price for the product.
-        Search products in every column. since there may not be any category with any item.
-        If you got more than one product try to cover it up in a single paragraph.
-        Please use the below context to write the SQL queries. It is a PostgreSQL database.
-        Context:
-        You are an expert at handling databases.
-        You must query against the connected database, which has tables, 'products', 'products_russian'.
+        Search products in every column, as there may not be any specific category for an item.
+        If more than one product matches, cover all relevant products in a single paragraph.
+        Data Retrieval:
+
+        Query against the connected PostgreSQL database, which has tables: 'products' and 'products_russian'.
         Both tables have columns: name, description, price, category, offers, image_link.
-        As an expert, you must use joins whenever required.
+        Use joins whenever required.
+        Response Content:
+
+        Provide an answer if asked about any products in the database by querying the description, offers, and price for the product.
+        When multiple products are found, summarize the information in a coherent paragraph.
+        Include the product name, description, price, and any available offers in the response.
+        Example Scenarios:
+
+        If a user asks about "smartphone", you should search for all relevant products with the name "smartphone" in the 'name' column, but also consider searching 'description' and other columns if necessary.
+        When a product has variations (e.g., different descriptions or offers), present them in a single response, detailing the differences.
+        If the input is in Russian, ensure to query the 'products_russian' table and respond in Russian script.
+        Your goal is to provide helpful, accurate, and friendly responses based on the database queries.
         """
         ),
         ("human", "{question}\nAI:")
