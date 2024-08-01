@@ -2,7 +2,7 @@ langchain==0.2.10
 langchain-community==0.2.9
 langchain-core==0.2.22
 langchain-groq==0.1.6
-langchain-openai==0.1.17
+langchain-groq
 langchain-text-splitters==0.2.2
 openai==1.36.1
 SQLAlchemy==2.0.31
